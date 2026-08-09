@@ -1,0 +1,2123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ISOMETRIC ASTEROIDS — Cosmic Vector</title>
+<style>
+  :root {
+    --hud-fg: #6ff7ff;
+    --hud-dim: #2c5a6a;
+    --hud-warn: #ff5a8a;
+    --hud-gold: #ffd86b;
+    --bg: #02030a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--hud-fg); font-family: 'Courier New', ui-monospace, monospace; user-select: none; }
+  #game {
+    display: block;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100vw; height: 100vh;
+    margin: 0; padding: 0;
+    cursor: crosshair;
+    background: radial-gradient(ellipse at center, #050a20 0%, #02030a 60%, #000 100%);
+    z-index: 0;
+    transform: none;
+  }
+  .overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(0,10,30,0.55) 0%, rgba(0,0,5,0.85) 100%);
+    backdrop-filter: blur(2px);
+    z-index: 10;
+    transition: opacity 0.3s;
+  }
+  .hidden { display: none !important; }
+  .panel {
+    border: 1px solid var(--hud-fg);
+    box-shadow: 0 0 20px rgba(111, 247, 255, 0.35), inset 0 0 30px rgba(111, 247, 255, 0.08);
+    background: rgba(0, 8, 20, 0.78);
+    padding: 36px 56px;
+    min-width: 380px;
+    max-width: 640px;
+    text-align: center;
+  }
+  .panel h1 {
+    font-size: 36px;
+    letter-spacing: 8px;
+    margin-bottom: 6px;
+    text-shadow: 0 0 14px var(--hud-fg), 0 0 28px rgba(111,247,255,0.6);
+  }
+  .panel h2 {
+    font-size: 14px;
+    letter-spacing: 6px;
+    color: var(--hud-dim);
+    margin-bottom: 28px;
+    text-transform: uppercase;
+  }
+  .panel h3 {
+    font-size: 22px;
+    letter-spacing: 4px;
+    margin-bottom: 18px;
+    color: var(--hud-gold);
+    text-shadow: 0 0 12px rgba(255, 216, 107, 0.6);
+  }
+  .menu-list { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; }
+  .menu-item {
+    padding: 12px 18px;
+    border: 1px solid var(--hud-dim);
+    color: var(--hud-fg);
+    cursor: pointer;
+    letter-spacing: 3px;
+    font-size: 14px;
+    transition: all 0.15s;
+    background: rgba(0, 20, 40, 0.4);
+  }
+  .menu-item:hover, .menu-item.focused {
+    border-color: var(--hud-fg);
+    background: rgba(111, 247, 255, 0.1);
+    box-shadow: 0 0 14px rgba(111, 247, 255, 0.4);
+    transform: translateX(4px);
+  }
+  .menu-item .desc { display: block; font-size: 11px; color: var(--hud-dim); letter-spacing: 1px; margin-top: 4px; }
+  .footer-hint {
+    margin-top: 24px;
+    font-size: 11px;
+    color: var(--hud-dim);
+    letter-spacing: 2px;
+  }
+  .blink { animation: blink 1.2s steps(2, start) infinite; }
+  @keyframes blink { to { visibility: hidden; } }
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0; padding: 16px 22px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; z-index: 5; font-size: 14px;
+    text-shadow: 0 0 6px var(--hud-fg);
+    letter-spacing: 2px;
+  }
+  #hud .col { display: flex; flex-direction: column; gap: 4px; }
+  #hud .right { text-align: right; }
+  #hud .bar { width: 200px; height: 6px; border: 1px solid var(--hud-dim); margin-top: 4px; }
+  #hud .bar > div { height: 100%; background: var(--hud-fg); box-shadow: 0 0 8px var(--hud-fg); transition: width 0.2s; }
+  #hud .label { color: var(--hud-dim); font-size: 10px; letter-spacing: 3px; }
+  #hud .val { font-size: 22px; color: var(--hud-fg); }
+  #hud .val.warn { color: var(--hud-warn); text-shadow: 0 0 8px var(--hud-warn); }
+  #hud .val.gold { color: var(--hud-gold); text-shadow: 0 0 8px var(--hud-gold); }
+  #toast {
+    position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+    color: var(--hud-gold); font-size: 22px; letter-spacing: 6px;
+    text-shadow: 0 0 12px var(--hud-gold);
+    pointer-events: none; z-index: 6;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  #toast.show { opacity: 1; }
+  #pause-hint {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    color: var(--hud-dim); font-size: 11px; letter-spacing: 3px;
+    pointer-events: none; z-index: 5;
+  }
+  .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--hud-dim); }
+  .stat-row .k { color: var(--hud-dim); letter-spacing: 2px; font-size: 12px; }
+  .stat-row .v { color: var(--hud-fg); font-size: 14px; }
+  .legend { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 12px 0; font-size: 12px; text-align: left; }
+  .legend .k { color: var(--hud-fg); letter-spacing: 2px; }
+  .legend .v { color: var(--hud-dim); }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- HUD overlay -->
+<div id="hud" class="hidden">
+  <div class="col">
+    <div><span class="label">SCORE</span><div class="val" id="hud-score">0</div></div>
+    <div><span class="label">LEVEL</span><div class="val" id="hud-level">1</div></div>
+  </div>
+  <div class="col" style="align-items:center;">
+    <div><span class="label">MODE</span><div class="val gold" id="hud-mode">CLASSIC</div></div>
+    <div><span class="label">COMBO</span><div class="val" id="hud-combo">x1</div></div>
+  </div>
+  <div class="col right">
+    <div><span class="label">LIVES</span><div class="val warn" id="hud-lives">▲▲▲</div></div>
+    <div><span class="label">SHIELD</span><div class="bar"><div id="hud-shield" style="width:0%"></div></div></div>
+    <div><span class="label">POWER</span><div class="bar"><div id="hud-power" style="width:0%"></div></div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="pause-hint" class="hidden">P / ESC — PAUSE   ·   M — MUTE   ·   MOUSE — AIM   ·   CLICK / SPACE — FIRE</div>
+
+<!-- Main Menu -->
+<div id="menu-main" class="overlay">
+  <div class="panel">
+    <h1>ISOMETRIC ASTEROIDS</h1>
+    <h2>// Cosmic Vector — Wireframe Edition //</h2>
+    <div class="menu-list">
+      <div class="menu-item focused" data-action="play"><span>▶ START GAME</span></div>
+      <div class="menu-item" data-action="mode"><span>◆ GAME MODE</span><span class="desc">Classic · Survival · Time Attack · Zen · Boss Rush</span></div>
+      <div class="menu-item" data-action="howto"><span>? HOW TO PLAY</span></div>
+      <div class="menu-item" data-action="audio"><span>♪ AUDIO: <span id="audio-state">ON</span></span></div>
+    </div>
+    <div class="footer-hint">↑↓ NAVIGATE &nbsp;·&nbsp; ENTER SELECT &nbsp;·&nbsp; CLICK TO BEGIN</div>
+  </div>
+</div>
+
+<!-- Mode Select -->
+<div id="menu-mode" class="overlay hidden">
+  <div class="panel">
+    <h3>SELECT GAME MODE</h3>
+    <div class="menu-list" id="mode-list"></div>
+    <div class="footer-hint">↑↓ NAVIGATE &nbsp;·&nbsp; ENTER CONFIRM &nbsp;·&nbsp; ESC BACK</div>
+  </div>
+</div>
+
+<!-- How To -->
+<div id="menu-howto" class="overlay hidden">
+  <div class="panel" style="min-width: 520px;">
+    <h3>HOW TO PLAY</h3>
+    <div class="legend">
+      <div class="k">MOUSE</div><div class="v">Aim reticle</div>
+      <div class="k">W / ↑</div><div class="v">Thrust forward</div>
+      <div class="k">A·D / ←→</div><div class="v">Strafe</div>
+      <div class="k">SPACE / CLICK</div><div class="v">Fire blasters</div>
+      <div class="k">SHIFT</div><div class="v">Boost (limited)</div>
+      <div class="k">P / ESC</div><div class="v">Pause</div>
+      <div class="k">M</div><div class="v">Toggle music &amp; SFX</div>
+    </div>
+    <div class="stat-row"><div class="k">ASTEROIDS</div><div class="v">Break into smaller chunks — chain them for combos</div></div>
+    <div class="stat-row"><div class="k">ENEMIES</div><div class="v">Hunters &amp; drones shoot back — avoid their lasers</div></div>
+    <div class="stat-row"><div class="k">POWER-UPS</div><div class="v">Shield · Multi-Shot · Rapid Fire · Bomb · 1UP · 2× Score</div></div>
+    <div class="stat-row"><div class="k">OBSTACLES</div><div class="v">Space mines &amp; debris — keep your distance</div></div>
+    <div class="footer-hint">PRESS ESC OR ENTER TO RETURN</div>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="menu-pause" class="overlay hidden">
+  <div class="panel">
+    <h3>— PAUSED —</h3>
+    <div class="menu-list">
+      <div class="menu-item focused" data-pause="resume"><span>▶ RESUME</span></div>
+      <div class="menu-item" data-pause="restart"><span>↻ RESTART LEVEL</span></div>
+      <div class="menu-item" data-pause="quit"><span>✕ QUIT TO MENU</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Level Transition -->
+<div id="menu-level" class="overlay hidden">
+  <div class="panel">
+    <h3 id="level-title">LEVEL 2</h3>
+    <div id="level-info" class="stat-row" style="border:none;text-align:center;color:var(--hud-dim);letter-spacing:3px;"></div>
+    <div class="footer-hint">GET READY<span class="blink">_</span></div>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div id="menu-over" class="overlay hidden">
+  <div class="panel">
+    <h1 id="over-title">GAME OVER</h1>
+    <h2 id="over-sub">// SHIP DESTROYED //</h2>
+    <div class="stat-row"><div class="k">FINAL SCORE</div><div class="v" id="over-score">0</div></div>
+    <div class="stat-row"><div class="k">LEVEL REACHED</div><div class="v" id="over-level">1</div></div>
+    <div class="stat-row"><div class="k">ASTEROIDS DESTROYED</div><div class="v" id="over-asteroids">0</div></div>
+    <div class="stat-row"><div class="k">ENEMIES DESTROYED</div><div class="v" id="over-enemies">0</div></div>
+    <div class="stat-row"><div class="k">MAX COMBO</div><div class="v" id="over-combo">x1</div></div>
+    <div class="stat-row"><div class="k">MODE</div><div class="v" id="over-mode">CLASSIC</div></div>
+    <div class="menu-list" style="margin-top:20px;">
+      <div class="menu-item focused" data-over="retry"><span>↻ PLAY AGAIN</span></div>
+      <div class="menu-item" data-over="menu"><span>◀ MAIN MENU</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ================================================================
+   ISOMETRIC ASTEROIDS — Cosmic Vector
+   A single-file wireframe asteroids game with dynamic lighting,
+   procedural cosmos music, colored nebulae, power-ups, enemies,
+   obstacles, lives, combos, levels and multiple game modes.
+   ================================================================ */
+
+/* -------------------- Canvas & Globals -------------------- */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 800, H = 600, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(320, window.innerWidth  || document.documentElement.clientWidth  || 800);
+  H = Math.max(240, window.innerHeight || document.documentElement.clientHeight || 600);
+  canvas.width  = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
+// Re-run after layout is fully ready
+if (document.readyState === 'complete') resize();
+else window.addEventListener('load', resize);
+resize();
+
+/* -------------------- Utility -------------------- */
+const TAU = Math.PI * 2;
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function rand(a, b) { return a + Math.random() * (b - a); }
+function irand(a, b) { return Math.floor(rand(a, b + 1)); }
+function choice(arr) { return arr[(Math.random() * arr.length) | 0]; }
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = seed;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/* -------------------- Audio Engine -------------------- */
+const Audio = (() => {
+  let ctxA = null, master, musicGain, sfxGain, enabled = true, musicStarted = false;
+  let arpTimer = null;
+
+  function ensure() {
+    if (ctxA) return ctxA;
+    try {
+      ctxA = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { ctxA = null; return null; }
+    master = ctxA.createGain();
+    master.gain.value = 0.55;
+    master.connect(ctxA.destination);
+    musicGain = ctxA.createGain();
+    musicGain.gain.value = 0.32;
+    musicGain.connect(master);
+    sfxGain = ctxA.createGain();
+    sfxGain.gain.value = 0.6;
+    sfxGain.connect(master);
+    return ctxA;
+  }
+
+  function startMusic() {
+    if (!enabled || musicStarted) return;
+    const c = ensure(); if (!c) return;
+    if (c.state === 'suspended') c.resume();
+    musicStarted = true;
+
+    // Drone pad
+    const makeVoice = (freq, type, gainVal) => {
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.value = gainVal;
+      o.connect(g); g.connect(musicGain);
+      o.start();
+      return { o, g };
+    };
+    const v1 = makeVoice(55, 'sine', 0.5);     // A1
+    const v2 = makeVoice(82.41, 'triangle', 0.18); // E2
+    const v3 = makeVoice(110, 'sine', 0.25);   // A2
+    const v4 = makeVoice(164.81, 'sine', 0.12); // E3
+
+    // Slow LFO modulates filter for breathing
+    const filter = c.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 700;
+    filter.Q.value = 1.2;
+    v1.g.connect(filter); v2.g.connect(filter);
+    v3.g.connect(filter); v4.g.connect(filter);
+    filter.connect(musicGain);
+
+    const lfo = c.createOscillator();
+    const lfoGain = c.createGain();
+    lfo.frequency.value = 0.07;
+    lfoGain.gain.value = 350;
+    lfo.connect(lfoGain); lfoGain.connect(filter.frequency);
+    lfo.start();
+
+    // Detune slowly
+    const detuneLfo = c.createOscillator();
+    const detuneAmt = c.createGain();
+    detuneLfo.frequency.value = 0.05;
+    detuneAmt.gain.value = 8;
+    detuneLfo.connect(detuneAmt); detuneAmt.connect(v2.o.detune);
+    detuneLfo.start();
+
+    // Reverb-like delay
+    const delay = c.createDelay();
+    delay.delayTime.value = 0.45;
+    const fb = c.createGain(); fb.gain.value = 0.45;
+    filter.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(musicGain);
+
+    // Cosmic hiss
+    const buf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.4;
+    const noise = c.createBufferSource(); noise.buffer = buf; noise.loop = true;
+    const nFilt = c.createBiquadFilter();
+    nFilt.type = 'bandpass'; nFilt.frequency.value = 1200; nFilt.Q.value = 0.4;
+    const nGain = c.createGain(); nGain.gain.value = 0.06;
+    noise.connect(nFilt); nFilt.connect(nGain); nGain.connect(musicGain);
+    noise.start();
+
+    // Sparse arpeggios
+    const scale = [220, 246.94, 293.66, 329.63, 392, 440, 523.25, 587.33]; // A minor + extensions
+    const playNote = () => {
+      if (!musicStarted) return;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sine';
+      const note = scale[Math.floor(Math.random() * scale.length)];
+      const oct = Math.random() < 0.3 ? 0.5 : (Math.random() < 0.5 ? 1 : 2);
+      o.frequency.value = note * oct;
+      const t = c.currentTime;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.07, t + 0.4);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + 3.5 + Math.random() * 2);
+      o.connect(g); g.connect(delay);
+      o.start(t); o.stop(t + 5);
+      arpTimer = setTimeout(playNote, 800 + Math.random() * 3200);
+    };
+    playNote();
+  }
+
+  function stopMusic() {
+    musicStarted = false;
+    if (arpTimer) { clearTimeout(arpTimer); arpTimer = null; }
+  }
+
+  function setEnabled(on) {
+    enabled = on;
+    document.getElementById('audio-state').textContent = on ? 'ON' : 'OFF';
+    if (ctxA) master.gain.value = on ? 0.55 : 0;
+    if (!on) stopMusic();
+    else if (game.state === 'PLAYING') startMusic();
+  }
+
+  function blip(type) {
+    if (!enabled) return;
+    const c = ensure(); if (!c) return;
+    if (c.state === 'suspended') c.resume();
+    const t = c.currentTime;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.connect(g); g.connect(sfxGain);
+    if (type === 'shoot') {
+      o.type = 'square';
+      o.frequency.setValueAtTime(880, t);
+      o.frequency.exponentialRampToValueAtTime(220, t + 0.09);
+      g.gain.setValueAtTime(0.12, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      o.start(t); o.stop(t + 0.1);
+    } else if (type === 'hit') {
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(180, t);
+      o.frequency.exponentialRampToValueAtTime(50, t + 0.22);
+      g.gain.setValueAtTime(0.18, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+      o.start(t); o.stop(t + 0.22);
+    } else if (type === 'explosion') {
+      const buf = c.createBuffer(1, c.sampleRate * 0.5, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+      const n = c.createBufferSource(); n.buffer = buf;
+      const f = c.createBiquadFilter();
+      f.type = 'lowpass'; f.frequency.setValueAtTime(2400, t);
+      f.frequency.exponentialRampToValueAtTime(80, t + 0.45);
+      g.gain.setValueAtTime(0.28, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+      n.connect(f); f.connect(g);
+      n.start(t);
+    } else if (type === 'powerup') {
+      o.type = 'sine';
+      o.frequency.setValueAtTime(440, t);
+      o.frequency.exponentialRampToValueAtTime(1320, t + 0.35);
+      g.gain.setValueAtTime(0.18, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+      o.start(t); o.stop(t + 0.45);
+    } else if (type === 'levelup') {
+      const notes = [261.63, 329.63, 392, 523.25, 659.25];
+      notes.forEach((n, i) => {
+        const oo = c.createOscillator();
+        const gg = c.createGain();
+        oo.type = 'triangle';
+        oo.frequency.value = n;
+        const tt = t + i * 0.09;
+        gg.gain.setValueAtTime(0, tt);
+        gg.gain.linearRampToValueAtTime(0.18, tt + 0.04);
+        gg.gain.exponentialRampToValueAtTime(0.001, tt + 0.45);
+        oo.connect(gg); gg.connect(sfxGain);
+        oo.start(tt); oo.stop(tt + 0.45);
+      });
+    } else if (type === 'gameover') {
+      const notes = [523.25, 392, 349.23, 293.66, 246.94];
+      notes.forEach((n, i) => {
+        const oo = c.createOscillator();
+        const gg = c.createGain();
+        oo.type = 'sawtooth';
+        oo.frequency.value = n;
+        const tt = t + i * 0.18;
+        gg.gain.setValueAtTime(0.12, tt);
+        gg.gain.exponentialRampToValueAtTime(0.001, tt + 0.8);
+        oo.connect(gg); gg.connect(sfxGain);
+        oo.start(tt); oo.stop(tt + 0.8);
+      });
+    } else if (type === 'menu') {
+      o.type = 'triangle';
+      o.frequency.value = 660;
+      g.gain.setValueAtTime(0.08, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      o.start(t); o.stop(t + 0.12);
+    } else if (type === 'shield') {
+      const oo = c.createOscillator();
+      oo.type = 'sine';
+      oo.frequency.setValueAtTime(220, t);
+      oo.frequency.exponentialRampToValueAtTime(880, t + 0.25);
+      g.gain.setValueAtTime(0.15, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      oo.connect(g); oo.start(t); oo.stop(t + 0.4);
+    } else if (type === 'bomb') {
+      const buf = c.createBuffer(1, c.sampleRate * 1.2, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+      const n = c.createBufferSource(); n.buffer = buf;
+      const f = c.createBiquadFilter();
+      f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t);
+      f.frequency.exponentialRampToValueAtTime(40, t + 1.0);
+      g.gain.setValueAtTime(0.45, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+      n.connect(f); f.connect(g);
+      n.start(t);
+    } else if (type === 'thrust') {
+      // Very subtle engine hiss
+      const buf = c.createBuffer(1, c.sampleRate * 0.15, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+      const n = c.createBufferSource(); n.buffer = buf;
+      const f = c.createBiquadFilter();
+      f.type = 'bandpass'; f.frequency.value = 200; f.Q.value = 0.8;
+      g.gain.setValueAtTime(0.04, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      n.connect(f); f.connect(g);
+      n.start(t);
+    }
+  }
+
+  return { startMusic, stopMusic, setEnabled, blip, get enabled() { return enabled; } };
+})();
+
+/* -------------------- Vector & Projection -------------------- */
+const ISO_ANGLE = Math.PI / 6;
+const COS_A = Math.cos(ISO_ANGLE);
+const SIN_A = Math.sin(ISO_ANGLE);
+const WORLD_SCALE = 2.4;  // global zoom so the world reads at a glance
+// Isometric projection: y is up in world, x & z are ground plane.
+function project(x, y, z, camX, camZ, scale) {
+  const s = scale * WORLD_SCALE;
+  const rx = (x - camX) * s;
+  const rz = (z - camZ) * s;
+  const sx = (rx - rz) * COS_A;
+  const sy = (rx + rz) * SIN_A - y * s;
+  return [sx, sy];
+}
+// Convert projected screen → world XZ at given y (for mouse aim)
+function unproject(sx, sy, y, camX, camZ, scale) {
+  const s = scale * WORLD_SCALE;
+  const a = sx / COS_A;            // = rx - rz  (scaled units)
+  const b = (sy + y * s) / SIN_A;  // = rx + rz  (scaled units)
+  return [
+    ((a + b) / 2) / s + camX,
+    ((b - a) / 2) / s + camZ
+  ];
+}
+
+/* -------------------- Wireframe Meshes -------------------- */
+function makeAsteroidMesh(seed, size) {
+  const rng = mulberry32(seed);
+  const n = 9 + ((rng() * 4) | 0);
+  const verts = [];
+  for (let i = 0; i < n; i++) {
+    const phi = Math.acos(2 * rng() - 1);
+    const theta = TAU * rng();
+    const r = size * (0.7 + rng() * 0.5);
+    verts.push({
+      x: r * Math.sin(phi) * Math.cos(theta),
+      y: r * Math.cos(phi) * 0.6,
+      z: r * Math.sin(phi) * Math.sin(theta)
+    });
+  }
+  const edges = [];
+  const edgeSet = new Set();
+  for (let i = 0; i < n; i++) {
+    const dists = [];
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const dx = verts[i].x - verts[j].x;
+      const dy = verts[i].y - verts[j].y;
+      const dz = verts[i].z - verts[j].z;
+      dists.push({ j, d: Math.sqrt(dx*dx + dy*dy + dz*dz) });
+    }
+    dists.sort((a, b) => a.d - b.d);
+    const k = Math.min(3, dists.length);
+    for (let q = 0; q < k; q++) {
+      const a = i, b = dists[q].j;
+      const key = a < b ? a + ',' + b : b + ',' + a;
+      if (edgeSet.has(key)) continue;
+      edgeSet.add(key);
+      edges.push([a, b]);
+    }
+  }
+  return { verts, edges };
+}
+
+function makeShipMesh() {
+  return {
+    verts: [
+      { x: 0,    y: 0,    z: -3.2 },  // 0 nose
+      { x: -1.6, y: -0.3, z: 1.6 },  // 1 left wing back
+      { x: 1.6,  y: -0.3, z: 1.6 },  // 2 right wing back
+      { x: 0,    y: 0.9,  z: 0.2 },  // 3 top
+      { x: 0,    y: -0.7, z: 0.4 },  // 4 bottom
+      { x: 0,    y: 0,    z: 2.2 },  // 5 tail
+    ],
+    edges: [
+      [0,1],[0,2],[1,2],   // nose to wings
+      [0,3],[1,3],[2,3],   // top
+      [0,4],[1,4],[2,4],   // bottom
+      [1,5],[2,5],[3,5],[4,5] // tail
+    ]
+  };
+}
+
+function makeEnemyMesh(type) {
+  if (type === 'drone') {
+    return {
+      verts: [
+        { x: 0, y: 0, z: -2.4 },
+        { x: -1.7, y: 0, z: 0 },
+        { x: 1.7, y: 0, z: 0 },
+        { x: 0, y: 0, z: 2.4 },
+        { x: 0, y: 1.2, z: 0 },
+        { x: 0, y: -0.9, z: 0 }
+      ],
+      edges: [
+        [0,1],[0,2],[0,4],[0,5],
+        [3,1],[3,2],[3,4],[3,5],
+        [1,2],[1,4],[2,4],[1,5],[2,5]
+      ]
+    };
+  } else if (type === 'hunter') {
+    return {
+      verts: [
+        { x: 0, y: 0, z: -2.8 },
+        { x: -2.4, y: 0, z: 1 },
+        { x: 2.4, y: 0, z: 1 },
+        { x: 0, y: 1.4, z: 1 },
+        { x: 0, y: -1, z: 1 },
+        { x: 0, y: 0, z: 3 }
+      ],
+      edges: [
+        [0,1],[0,2],[0,3],[0,4],
+        [5,1],[5,2],[5,3],[5,4],
+        [1,2],[3,4],[1,3],[2,3],[1,4],[2,4]
+      ]
+    };
+  } else if (type === 'sniper') {
+    return {
+      verts: [
+        { x: 0, y: 0, z: -3.6 },
+        { x: -1.4, y: 0, z: -1.4 },
+        { x: 1.4, y: 0, z: -1.4 },
+        { x: -1.4, y: 0, z: 1.6 },
+        { x: 1.4, y: 0, z: 1.6 },
+        { x: 0, y: 0.8, z: 0 },
+        { x: 0, y: -0.5, z: 0 },
+        { x: 0, y: 0, z: 3.2 }
+      ],
+      edges: [
+        [0,1],[0,2],[1,2],
+        [1,3],[2,4],[3,4],
+        [1,5],[2,5],[3,5],[4,5],
+        [1,6],[2,6],[3,6],[4,6],
+        [3,7],[4,7],[5,7],[6,7]
+      ]
+    };
+  } else if (type === 'boss') {
+    // Big octahedron core with arms
+    const v = [
+      { x: 0, y: 2.5, z: 0 },     // 0 top
+      { x: 0, y: -2.5, z: 0 },    // 1 bottom
+      { x: -2.5, y: 0, z: 0 },    // 2 left
+      { x: 2.5, y: 0, z: 0 },     // 3 right
+      { x: 0, y: 0, z: -2.5 },    // 4 back
+      { x: 0, y: 0, z: 2.5 },     // 5 front
+      // arm tips
+      { x: -4, y: 1.5, z: -3 },   // 6
+      { x: 4, y: -1.5, z: -3 },   // 7
+      { x: -4, y: -1.5, z: 3 },   // 8
+      { x: 4, y: 1.5, z: 3 }      // 9
+    ];
+    return {
+      verts: v,
+      edges: [
+        [0,2],[0,3],[0,4],[0,5],
+        [1,2],[1,3],[1,4],[1,5],
+        [2,3],[2,4],[3,4],[2,5],[3,5],[4,5],
+        [6,0],[6,2],[6,4],
+        [7,0],[7,3],[7,4],
+        [8,1],[8,2],[8,5],
+        [9,1],[9,3],[9,5]
+      ]
+    };
+  }
+}
+
+function makePowerUpMesh() {
+  return {
+    verts: [
+      { x: -0.7, y: -0.7, z: -0.7 }, { x: 0.7, y: -0.7, z: -0.7 },
+      { x: 0.7, y: 0.7, z: -0.7 },   { x: -0.7, y: 0.7, z: -0.7 },
+      { x: -0.7, y: -0.7, z: 0.7 },  { x: 0.7, y: -0.7, z: 0.7 },
+      { x: 0.7, y: 0.7, z: 0.7 },    { x: -0.7, y: 0.7, z: 0.7 }
+    ],
+    edges: [
+      [0,1],[1,2],[2,3],[3,0],
+      [4,5],[5,6],[6,7],[7,4],
+      [0,4],[1,5],[2,6],[3,7]
+    ]
+  };
+}
+
+function makeMineMesh() {
+  return {
+    verts: [
+      { x: 0, y: 1, z: 0 },     { x: 0, y: -1, z: 0 },
+      { x: 1, y: 0, z: 0 },     { x: -1, y: 0, z: 0 },
+      { x: 0, y: 0, z: 1 },     { x: 0, y: 0, z: -1 }
+    ],
+    edges: [
+      [0,2],[0,3],[0,4],[0,5],
+      [1,2],[1,3],[1,4],[1,5],
+      [2,4],[4,3],[3,5],[5,2]
+    ]
+  };
+}
+
+/* -------------------- Dynamic Lighting -------------------- */
+const lights = []; // active light sources
+function addLight(x, y, z, color, intensity, radius, life = 1) {
+  lights.push({ x, y, z, color, intensity, radius, life, maxLife: life });
+}
+// Ambient + dynamic per-vertex lighting
+function lighting(x, y, z) {
+  let r = 0.06, g = 0.08, b = 0.14; // ambient cosmic blue
+  for (let i = lights.length - 1; i >= 0; i--) {
+    const l = lights[i];
+    const dx = l.x - x, dy = l.y - y, dz = l.z - z;
+    const d2 = dx*dx + dy*dy + dz*dz;
+    const R = l.radius;
+    if (d2 < R * R) {
+      const d = Math.sqrt(d2);
+      const fall = 1 - d / R;
+      const k = l.intensity * fall * fall * l.life;
+      r += l.color[0] * k;
+      g += l.color[1] * k;
+      b += l.color[2] * k;
+    }
+  }
+  return [Math.min(1, r), Math.min(1, g), Math.min(1, b)];
+}
+
+/* -------------------- Background: Stars + Nebulae -------------------- */
+const stars = [];
+const starLayers = [
+  { count: 200, parallax: 0.2, size: 0.6 },
+  { count: 140, parallax: 0.4, size: 0.9 },
+  { count: 60,  parallax: 0.7, size: 1.4 }
+];
+for (const layer of starLayers) {
+  for (let i = 0; i < layer.count; i++) {
+    stars.push({
+      x: Math.random() * 4000 - 2000,
+      y: Math.random() * 4000 - 2000,
+      z: Math.random() * 4000 - 2000,
+      p: layer.parallax,
+      s: layer.size * (0.6 + Math.random() * 0.8),
+      tw: Math.random() * TAU
+    });
+  }
+}
+
+const nebulae = [];
+const nebColors = [
+  [255, 80, 160],   // pink
+  [120, 80, 255],   // violet
+  [80, 200, 255],   // cyan
+  [255, 180, 80],   // amber
+  [80, 255, 180],   // teal
+  [255, 100, 100],  // red
+];
+function makeNebula() {
+  const color = choice(nebColors);
+  return {
+    x: rand(-1500, 1500),
+    y: rand(-300, 400),
+    z: rand(-1500, 1500),
+    rx: rand(300, 700),
+    ry: rand(100, 250),
+    rz: rand(300, 700),
+    rot: rand(0, TAU),
+    spin: rand(-0.05, 0.05),
+    color: color,
+    alpha: rand(0.04, 0.12),
+    blobs: []
+  };
+}
+for (let i = 0; i < 7; i++) {
+  const n = makeNebula();
+  for (let j = 0; j < 5; j++) {
+    n.blobs.push({
+      ox: rand(-1, 1) * n.rx,
+      oy: rand(-1, 1) * n.ry,
+      oz: rand(-1, 1) * n.rz,
+      r: rand(80, 200)
+    });
+  }
+  nebulae.push(n);
+}
+
+const gasClouds = [];
+for (let i = 0; i < 25; i++) {
+  gasClouds.push({
+    x: rand(-2000, 2000),
+    y: rand(-200, 200),
+    z: rand(-2000, 2000),
+    r: rand(40, 120),
+    color: choice(nebColors),
+    alpha: rand(0.02, 0.06)
+  });
+}
+
+/* -------------------- Game State -------------------- */
+const MODES = {
+  CLASSIC:   { name: 'CLASSIC',    desc: 'Clear all asteroids to advance. Lose all lives = game over.', respawn: true, enemies: true, levels: true, timeLimit: 0 },
+  SURVIVAL:  { name: 'SURVIVAL',   desc: 'Endless waves — survive as long as you can.',             respawn: true, enemies: true, levels: false, timeLimit: 0 },
+  TIME:      { name: 'TIME ATTACK',desc: '90 seconds. Maximum destruction.',                        respawn: true, enemies: true, levels: false, timeLimit: 90 },
+  ZEN:       { name: 'ZEN',        desc: 'No enemies, no timer. Pure asteroid destruction.',       respawn: true, enemies: false, levels: true, timeLimit: 0 },
+  BOSS:      { name: 'BOSS RUSH',  desc: 'A boss awaits each level. Bring shields.',               respawn: true, enemies: true, levels: true, timeLimit: 0, bossOnly: true }
+};
+
+const game = {
+  state: 'MENU',     // MENU, PLAYING, PAUSED, LEVEL, OVER
+  mode: 'CLASSIC',
+  level: 1,
+  score: 0,
+  lives: 3,
+  asteroidsDestroyed: 0,
+  enemiesDestroyed: 0,
+  combo: 1,
+  maxCombo: 1,
+  comboTimer: 0,
+  shield: 0,
+  rapidFire: 0,
+  multiShot: 0,
+  scoreMult: 0,
+  powerMult: 0,
+  boost: 1,
+  timeLeft: 0,
+  paused: false,
+  cameraX: 0, cameraZ: 0,
+  lastShot: 0,
+  spawnTimer: 0,
+  levelTimer: 0,
+  shake: 0,
+  flash: 0,
+  toast: '',
+  toastTimer: 0,
+  mouseX: 0, mouseY: 0,
+  keys: {},
+  player: null,
+  bullets: [],
+  asteroids: [],
+  enemies: [],
+  enemyBullets: [],
+  powerUps: [],
+  obstacles: [],
+  particles: [],
+  pendingLevelChange: null,
+  highScores: {}
+};
+
+function resetRunState() {
+  game.level = 1;
+  game.score = 0;
+  game.lives = 3;
+  game.asteroidsDestroyed = 0;
+  game.enemiesDestroyed = 0;
+  game.combo = 1;
+  game.maxCombo = 1;
+  game.comboTimer = 0;
+  game.shield = 0;
+  game.rapidFire = 0;
+  game.multiShot = 0;
+  game.scoreMult = 0;
+  game.powerMult = 0;
+  game.boost = 1;
+  game.timeLeft = MODES[game.mode].timeLimit || 0;
+  game.lastShot = 0;
+  game.spawnTimer = 0;
+  game.levelTimer = 0;
+  game.shake = 0;
+  game.flash = 0;
+  game.bullets.length = 0;
+  game.asteroids.length = 0;
+  game.enemies.length = 0;
+  game.enemyBullets.length = 0;
+  game.powerUps.length = 0;
+  game.obstacles.length = 0;
+  game.particles.length = 0;
+  spawnPlayer();
+  populateLevel();
+}
+
+/* -------------------- Entities -------------------- */
+function spawnPlayer() {
+  game.player = {
+    x: 0, y: 0, z: 0,
+    vx: 0, vy: 0, vz: 0,
+    ax: 0, az: 0,
+    rot: 0,         // facing yaw (radians)
+    targetRot: 0,
+    thrust: false,
+    invuln: 2.0,
+    radius: 2.4,
+    mesh: makeShipMesh(),
+    thrusting: false
+  };
+  game.cameraX = 0;
+  game.cameraZ = 0;
+}
+
+function populateLevel() {
+  const mode = MODES[game.mode];
+  const lvl = game.level;
+  // Asteroids: more and larger as level rises
+  const baseCount = 5 + lvl * 2;
+  const count = Math.min(35, baseCount + (mode.bossOnly ? 4 : 0));
+  for (let i = 0; i < count; i++) {
+    spawnAsteroid(0, null);
+  }
+  // Enemies by mode/level
+  if (mode.enemies) {
+    const eCount = mode.bossOnly ? 0 : Math.min(8, Math.floor(lvl * 0.8) + (lvl >= 2 ? 1 : 0));
+    for (let i = 0; i < eCount; i++) spawnEnemy();
+    if (mode.bossOnly || (lvl > 0 && lvl % 5 === 0)) {
+      spawnEnemy('boss');
+    }
+  }
+  // Obstacles scale with level
+  const oCount = lvl >= 3 ? Math.min(6, lvl - 2) : 0;
+  for (let i = 0; i < oCount; i++) spawnObstacle();
+}
+
+function spawnAsteroid(sizeHint, pos) {
+  const sizes = [
+    { r: 6, hp: 1, score: 100, label: 'LARGE' },
+    { r: 3.5, hp: 1, score: 200, label: 'MED' },
+    { r: 1.8, hp: 1, score: 350, label: 'SMALL' }
+  ];
+  const idx = sizeHint != null ? sizeHint : irand(0, 1);
+  const s = sizes[Math.min(idx, 2)];
+  let x, z;
+  if (pos) {
+    x = pos.x; z = pos.z;
+  } else {
+    // Spawn at edge of arena
+    const angle = Math.random() * TAU;
+    const dist = rand(16, 30);
+    x = game.cameraX + Math.cos(angle) * dist;
+    z = game.cameraZ + Math.sin(angle) * dist;
+  }
+  game.asteroids.push({
+    x, y: rand(-1, 1), z,
+    vx: rand(-3, 3), vy: rand(-0.5, 0.5), vz: rand(-3, 3),
+    spin: rand(-0.6, 0.6),
+    rx: rand(0, TAU), ry: rand(0, TAU), rz: rand(0, TAU),
+    radius: s.r, hp: s.hp, score: s.score, label: s.label,
+    mesh: makeAsteroidMesh((Math.random() * 1e9) | 0, s.r),
+    color: choice([[220,220,240], [200,180,160], [180,200,220], [255,200,150]])
+  });
+}
+
+function spawnEnemy(type) {
+  if (!type) {
+    const t = Math.random() < 0.5 ? 'drone' : (Math.random() < 0.5 ? 'hunter' : 'sniper');
+    type = t;
+  }
+  const angle = Math.random() * TAU;
+  const dist = rand(28, 42);
+  const x = game.cameraX + Math.cos(angle) * dist;
+  const z = game.cameraZ + Math.sin(angle) * dist;
+  const e = {
+    x, y: 0, z,
+    vx: 0, vy: 0, vz: 0,
+    type,
+    hp: type === 'boss' ? 40 + game.level * 4 : (type === 'sniper' ? 3 : 2),
+    maxHp: type === 'boss' ? 40 + game.level * 4 : (type === 'sniper' ? 3 : 2),
+    radius: type === 'boss' ? 8 : (type === 'hunter' ? 2.8 : 2.2),
+    score: type === 'boss' ? 5000 + game.level * 500 : (type === 'hunter' ? 600 : 300),
+    mesh: makeEnemyMesh(type),
+    fireTimer: rand(1, 3),
+    state: 'patrol',
+    stateTimer: rand(2, 4),
+    rot: 0, ry: rand(0, TAU), rz: rand(0, TAU),
+    color: type === 'boss' ? [255,80,80] : (type === 'hunter' ? [255,160,80] : (type === 'sniper' ? [200,120,255] : [180,255,180]))
+  };
+  game.enemies.push(e);
+}
+
+function spawnObstacle() {
+  const x = game.cameraX + rand(-40, 40);
+  const z = game.cameraZ + rand(-40, 40);
+  game.obstacles.push({
+    x, y: 0, z,
+    vx: rand(-1, 1), vz: rand(-1, 1),
+    radius: 2.2,
+    mesh: makeMineMesh(),
+    spin: rand(-1, 1),
+    ry: 0
+  });
+}
+
+function spawnPowerUp(x, z) {
+  const types = ['SHIELD', 'MULTI', 'RAPID', 'BOMB', 'LIFE', 'SCORE'];
+  const t = choice(types);
+  game.powerUps.push({
+    x, y: 0, z, type: t,
+    mesh: makePowerUpMesh(),
+    ry: 0, rspin: rand(0.5, 1.5),
+    bob: rand(0, TAU),
+    radius: 1.0
+  });
+}
+
+/* -------------------- Input -------------------- */
+const Input = {
+  mouseDown: false,
+  init() {
+    canvas.addEventListener('mousemove', e => {
+      const r = canvas.getBoundingClientRect();
+      game.mouseX = e.clientX - r.left;
+      game.mouseY = e.clientY - r.top;
+    });
+    canvas.addEventListener('mousedown', e => {
+      game.mouseDown = true;
+      Audio.startMusic();
+    });
+    window.addEventListener('mouseup', () => { game.mouseDown = false; });
+    window.addEventListener('keydown', e => {
+      const k = e.key.toLowerCase();
+      game.keys[k] = true;
+      if (k === ' ') e.preventDefault();
+      if (k === 'p' || k === 'escape') {
+        if (game.state === 'PLAYING') pauseGame();
+        else if (game.state === 'PAUSED') resumeGame();
+      }
+      if (k === 'm') Audio.setEnabled(!Audio.enabled);
+      if (k === 'enter' && game.state !== 'PLAYING') handleEnter();
+      if (['arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
+    });
+    window.addEventListener('keyup', e => { game.keys[e.key.toLowerCase()] = false; });
+    // Click on overlay buttons
+    document.body.addEventListener('click', e => {
+      const t = e.target.closest('.menu-item');
+      if (t) {
+        const act = t.dataset.action || t.dataset.pause || t.dataset.over;
+        if (act) handleMenuAction(act);
+        Audio.startMusic();
+      }
+    });
+  }
+};
+
+/* -------------------- Player Update -------------------- */
+function updatePlayer(dt) {
+  const p = game.player; if (!p) return;
+  // Thrust & steering
+  const fwd = (game.keys['w'] || game.keys['arrowup']) ? 1 : 0;
+  const left = (game.keys['a'] || game.keys['arrowleft']) ? 1 : 0;
+  const right = (game.keys['d'] || game.keys['arrowright']) ? 1 : 0;
+  const boosting = !!game.keys['shift'] && game.boost > 0;
+  if (boosting) game.boost = Math.max(0, game.boost - dt * 0.3);
+  p.thrusting = fwd > 0;
+  // Aim: ship points toward mouse (project to ground plane)
+  const aim = aimPoint();
+  const dx = aim[0] - p.x;
+  const dz = aim[1] - p.z;
+  p.targetRot = Math.atan2(dx, dz);
+  // Smooth rotate
+  let dr = p.targetRot - p.rot;
+  while (dr > Math.PI) dr -= TAU;
+  while (dr < -Math.PI) dr += TAU;
+  p.rot += dr * Math.min(1, dt * 8);
+
+  // Accelerations are per-second; velocity is per-second; position += velocity * dt.
+  const baseAccel = boosting ? 95 : 55;
+  const strafeAccel = 38;
+  const sx = Math.sin(p.rot), sz = Math.cos(p.rot);
+  if (fwd) { p.vx += sx * baseAccel * dt; p.vz += sz * baseAccel * dt; }
+  if (left) { p.vx += -sz * strafeAccel * dt; p.vz += sx * strafeAccel * dt; }
+  if (right) { p.vx += sz * strafeAccel * dt; p.vz += -sx * strafeAccel * dt; }
+  // Frame-rate independent drag
+  const drag = Math.exp(-1.5 * dt);
+  p.vx *= drag; p.vz *= drag;
+  // Clamp speed
+  const maxSpeed = boosting ? 42 : 26;
+  const sp = Math.hypot(p.vx, p.vz);
+  if (sp > maxSpeed) { p.vx = p.vx / sp * maxSpeed; p.vz = p.vz / sp * maxSpeed; }
+  // Single position integration
+  p.x += p.vx * dt;
+  p.z += p.vz * dt;
+
+  // Invulnerability timer
+  if (p.invuln > 0) p.invuln -= dt;
+  // Engine light
+  if (p.thrusting) {
+    addLight(p.x - sx * 2, 0, p.z - sz * 2, [255, 180, 80], 1.2, 6, 0.25);
+    if (Math.random() < 0.3) Audio.blip('thrust');
+  }
+}
+
+function aimPoint() {
+  // Project mouse onto ground plane (y=0) relative to camera
+  const sx = game.mouseX - W / 2;
+  const sy = game.mouseY - H / 2;
+  return unproject(sx, sy, 0, game.cameraX, game.cameraZ, 1);
+}
+
+/* -------------------- Update Game -------------------- */
+function update(dt) {
+  if (game.state !== 'PLAYING') return;
+  // Combo decay
+  if (game.comboTimer > 0) {
+    game.comboTimer -= dt;
+    if (game.comboTimer <= 0) game.combo = 1;
+  }
+  // Power-up timers
+  if (game.shield > 0) game.shield = Math.max(0, game.shield - dt);
+  if (game.rapidFire > 0) game.rapidFire = Math.max(0, game.rapidFire - dt);
+  if (game.multiShot > 0) game.multiShot = Math.max(0, game.multiShot - dt);
+  if (game.scoreMult > 0) game.scoreMult = Math.max(0, game.scoreMult - dt);
+  if (game.flash > 0) game.flash = Math.max(0, game.flash - dt);
+  if (game.shake > 0) game.shake = Math.max(0, game.shake - dt);
+  if (game.toastTimer > 0) {
+    game.toastTimer -= dt;
+    if (game.toastTimer <= 0) document.getElementById('toast').classList.remove('show');
+  }
+
+  updatePlayer(dt);
+  updateBullets(dt);
+  updateAsteroids(dt);
+  updateEnemies(dt);
+  updateEnemyBullets(dt);
+  updatePowerUps(dt);
+  updateObstacles(dt);
+  updateParticles(dt);
+
+  // Camera follows player with smoothing
+  game.cameraX = lerp(game.cameraX, game.player.x, Math.min(1, dt * 4));
+  game.cameraZ = lerp(game.cameraZ, game.player.z, Math.min(1, dt * 4));
+
+  // Time attack timer
+  if (MODES[game.mode].timeLimit) {
+    game.timeLeft -= dt;
+    if (game.timeLeft <= 0) {
+      game.timeLeft = 0;
+      triggerGameOver();
+      return;
+    }
+  }
+
+  // Continuous spawning for Survival / Time Attack
+  const mode = MODES[game.mode];
+  if ((game.mode === 'SURVIVAL' || game.mode === 'TIME') && game.asteroids.length < 12) {
+    game.spawnTimer -= dt;
+    if (game.spawnTimer <= 0) {
+      spawnAsteroid(irand(0, 1));
+      game.spawnTimer = rand(0.5, 1.5);
+    }
+  }
+
+  // Check level completion (Classic/Zen/Boss)
+  if (mode.levels && game.asteroids.length === 0 && game.enemies.length === 0) {
+    triggerLevelComplete();
+  }
+}
+
+/* -------------------- Player fire & combat -------------------- */
+function fireBullet() {
+  const p = game.player;
+  if (!p) return;
+  const now = performance.now() / 1000;
+  const cooldown = game.rapidFire > 0 ? 0.12 : 0.32;
+  if (now - game.lastShot < cooldown) return;
+  game.lastShot = now;
+  const speed = 70;
+  const sx = Math.sin(p.rot), sz = Math.cos(p.rot);
+  const baseX = p.x + sx * 1.4;
+  const baseZ = p.z + sz * 1.4;
+  const shots = game.multiShot > 0 ? 3 : 1;
+  for (let i = 0; i < shots; i++) {
+    const angle = p.rot + (shots === 3 ? (i - 1) * 0.18 : 0);
+    const ax = Math.sin(angle), az = Math.cos(angle);
+    game.bullets.push({
+      x: baseX + ax * 1.2, y: 0, z: baseZ + az * 1.2,
+      vx: ax * speed, vy: 0, vz: az * speed,
+      life: 1.6, fromPlayer: true,
+      color: [255, 255, 180]
+    });
+  }
+  Audio.blip('shoot');
+  // Muzzle light
+  addLight(baseX, 0, baseZ, [255, 220, 120], 1.2, 5, 0.15);
+}
+
+function updateBullets(dt) {
+  for (let i = game.bullets.length - 1; i >= 0; i--) {
+    const b = game.bullets[i];
+    b.x += b.vx * dt;
+    b.z += b.vz * dt;
+    b.life -= dt;
+    if (b.life <= 0) { game.bullets.splice(i, 1); continue; }
+    // vs asteroids
+    for (let j = game.asteroids.length - 1; j >= 0; j--) {
+      const a = game.asteroids[j];
+      if (dist2(b.x, b.z, a.x, a.z) < (a.radius + 0.3) ** 2) {
+        damageAsteroid(j, b.x, b.z, b.color);
+        game.bullets.splice(i, 1);
+        break;
+      }
+    }
+    if (!game.bullets[i]) continue;
+    // vs enemies
+    for (let j = game.enemies.length - 1; j >= 0; j--) {
+      const e = game.enemies[j];
+      if (dist2(b.x, b.z, e.x, e.z) < (e.radius + 0.3) ** 2) {
+        damageEnemy(j, b.x, b.z);
+        game.bullets.splice(i, 1);
+        break;
+      }
+    }
+    if (!game.bullets[i]) continue;
+    // vs obstacles
+    for (let j = game.obstacles.length - 1; j >= 0; j--) {
+      const o = game.obstacles[j];
+      if (dist2(b.x, b.z, o.x, o.z) < (o.radius + 0.2) ** 2) {
+        explodeObstacle(j, b.x, b.z);
+        game.bullets.splice(i, 1);
+        break;
+      }
+    }
+    if (!game.bullets[i]) continue;
+    // vs powerups (destroy by mistake — skip; bullets pass through power-ups)
+  }
+}
+
+function updateAsteroids(dt) {
+  for (let i = game.asteroids.length - 1; i >= 0; i--) {
+    const a = game.asteroids[i];
+    a.x += a.vx * dt;
+    a.z += a.vz * dt;
+    a.rx += a.spin * dt;
+    a.ry += a.spin * dt * 0.7;
+    a.rz += a.spin * dt * 0.5;
+    // Wrap around arena
+    wrapAroundArena(a, 38);
+    // vs player
+    const p = game.player;
+    if (p && p.invuln <= 0) {
+      if (dist2(p.x, p.z, a.x, a.z) < (p.radius + a.radius) ** 2) {
+        if (game.shield > 0) {
+          // Shield absorbs
+          game.shield = 0;
+          explosionAt(a.x, a.z, [180, 220, 255], 18);
+          Audio.blip('shield');
+          // Split asteroid
+          const idx = i;
+          splitAsteroid(idx);
+          damagePlayer(1, a.x, a.z);
+        } else {
+          damagePlayer(1, a.x, a.z);
+          const idx = i;
+          splitAsteroid(idx);
+        }
+      }
+    }
+  }
+}
+
+function splitAsteroid(idx) {
+  const a = game.asteroids[idx];
+  game.asteroids.splice(idx, 1);
+  if (a.label === 'SMALL') return;
+  const newSize = a.label === 'LARGE' ? 1 : 2;
+  for (let i = 0; i < 2; i++) {
+    const angle = Math.random() * TAU;
+    const sp = rand(2, 5);
+    const child = {
+      x: a.x + Math.cos(angle) * 1.5,
+      y: a.y, z: a.z + Math.sin(angle) * 1.5,
+      vx: a.vx * 0.5 + Math.cos(angle) * sp,
+      vy: a.vy * 0.5,
+      vz: a.vz * 0.5 + Math.sin(angle) * sp,
+      spin: rand(-1, 1),
+      rx: a.rx, ry: a.ry, rz: a.rz,
+      radius: newSize === 1 ? 3.5 : 1.8,
+      hp: 1,
+      score: newSize === 1 ? 200 : 350,
+      label: newSize === 1 ? 'MED' : 'SMALL',
+      mesh: makeAsteroidMesh((Math.random() * 1e9) | 0, newSize === 1 ? 3.5 : 1.8),
+      color: a.color
+    };
+    game.asteroids.push(child);
+  }
+}
+
+function damageAsteroid(idx, atX, atZ, color) {
+  const a = game.asteroids[idx];
+  a.hp -= 1;
+  if (a.hp <= 0) {
+    awardScore(a.score, atX, atZ);
+    explosionAt(atX, atZ, a.color, 22);
+    Audio.blip('explosion');
+    game.asteroidsDestroyed++;
+    if (Math.random() < 0.18) spawnPowerUp(a.x, a.z);
+    splitAsteroid(idx);
+  } else {
+    addLight(atX, 0, atZ, [255, 240, 200], 0.8, 4, 0.3);
+  }
+}
+
+function awardScore(base, x, z) {
+  game.combo = Math.min(99, game.combo + 1);
+  game.comboTimer = 2.0;
+  if (game.combo > game.maxCombo) game.maxCombo = game.combo;
+  const mult = game.combo * (game.scoreMult > 0 ? 2 : 1);
+  const pts = base * mult;
+  game.score += pts;
+  showFloater('+' + pts, x, z, mult > 1 ? '#ffd86b' : '#6ff7ff');
+}
+
+function updateEnemies(dt) {
+  const p = game.player;
+  for (let i = game.enemies.length - 1; i >= 0; i--) {
+    const e = game.enemies[i];
+    e.ry += dt * 0.5;
+    e.stateTimer -= dt;
+    e.fireTimer -= dt;
+    const dx = p.x - e.x, dz = p.z - e.z;
+    const d = Math.hypot(dx, dz) || 1;
+    const tx = dx / d, tz = dz / d;
+    if (e.type === 'drone') {
+      // Slow approach
+      const sp = 8;
+      e.vx = lerp(e.vx, tx * sp, 0.04);
+      e.vz = lerp(e.vz, tz * sp, 0.04);
+      e.rot = Math.atan2(tx, tz);
+      if (e.fireTimer <= 0 && d < 38) enemyShoot(e, 20);
+    } else if (e.type === 'hunter') {
+      const sp = 14;
+      // Strafe while approaching
+      const perp = Math.atan2(tx, tz) + Math.PI / 2;
+      const sx = Math.sin(perp), sz = Math.cos(perp);
+      const strafe = Math.sin(performance.now() * 0.002 + i) * 5;
+      e.vx = lerp(e.vx, tx * sp + sx * strafe, 0.06);
+      e.vz = lerp(e.vz, tz * sp + sz * strafe, 0.06);
+      e.rot = Math.atan2(tx, tz);
+      if (e.fireTimer <= 0 && d < 32) enemyShoot(e, 26);
+    } else if (e.type === 'sniper') {
+      // Keep distance
+      const desired = 26;
+      const factor = d < desired ? -1 : (d > desired + 10 ? 1 : 0);
+      const sp = 10;
+      e.vx = lerp(e.vx, tx * sp * factor, 0.05);
+      e.vz = lerp(e.vz, tz * sp * factor, 0.05);
+      e.rot = Math.atan2(tx, tz);
+      if (e.fireTimer <= 0 && d < 40) enemyShoot(e, 32, 3);
+    } else if (e.type === 'boss') {
+      const sp = 6;
+      e.vx = lerp(e.vx, tx * sp, 0.03);
+      e.vz = lerp(e.vz, tz * sp, 0.03);
+      e.rot += dt * 0.4;
+      if (e.fireTimer <= 0) {
+        // Burst fire at player + spreads
+        const shots = 8;
+        for (let k = 0; k < shots; k++) {
+          const a = (k / shots) * TAU;
+          game.enemyBullets.push({
+            x: e.x + Math.cos(a) * 4, y: 0, z: e.z + Math.sin(a) * 4,
+            vx: Math.cos(a) * 18, vy: 0, vz: Math.sin(a) * 18,
+            life: 3, color: [255, 80, 80]
+          });
+        }
+        // Also aimed shot
+        enemyShoot(e, 28, 1);
+        e.fireTimer = 1.6;
+      }
+    }
+    e.x += e.vx * dt;
+    e.z += e.vz * dt;
+    if (e.fireTimer <= -10) e.fireTimer = rand(0.8, 2.5);
+    if (e.stateTimer <= 0) { e.stateTimer = rand(2, 4); }
+    // Collision with player
+    if (p && p.invuln <= 0) {
+      if (dist2(p.x, p.z, e.x, e.z) < (p.radius + e.radius) ** 2) {
+        if (game.shield > 0) {
+          game.shield = 0;
+          explosionAt(e.x, e.z, [180, 220, 255], 22);
+          Audio.blip('shield');
+          damagePlayer(1, e.x, e.z);
+          // Boss damage on ramming shield
+          if (e.type === 'boss') e.hp -= 2;
+        } else {
+          damagePlayer(2, e.x, e.z);
+        }
+      }
+    }
+  }
+}
+
+function enemyShoot(e, speed, burst = 1) {
+  const p = game.player;
+  const dx = p.x - e.x, dz = p.z - e.z;
+  const d = Math.hypot(dx, dz) || 1;
+  const tx = dx / d, tz = dz / d;
+  for (let i = 0; i < burst; i++) {
+    const a = Math.atan2(tx, tz) + (burst > 1 ? (i - (burst - 1) / 2) * 0.1 : 0);
+    const ax = Math.sin(a), az = Math.cos(a);
+    game.enemyBullets.push({
+      x: e.x + ax * (e.radius + 0.4),
+      y: 0,
+      z: e.z + az * (e.radius + 0.4),
+      vx: ax * speed, vy: 0, vz: az * speed,
+      life: 2.5,
+      color: e.type === 'boss' ? [255, 80, 80] : (e.type === 'hunter' ? [255, 180, 100] : [200, 120, 255])
+    });
+  }
+  addLight(e.x, 0, e.z, [255, 200, 200], 0.8, 5, 0.2);
+  e.fireTimer = rand(1.2, 2.5);
+}
+
+function damageEnemy(idx, atX, atZ) {
+  const e = game.enemies[idx];
+  e.hp -= 1;
+  addLight(atX, 0, atZ, [255, 220, 220], 0.7, 4, 0.25);
+  if (e.hp <= 0) {
+    awardScore(e.score, atX, atZ);
+    explosionAt(atX, atZ, e.color, e.type === 'boss' ? 80 : 36);
+    Audio.blip(e.type === 'boss' ? 'explosion' : 'explosion');
+    game.shake = e.type === 'boss' ? 0.6 : 0.25;
+    game.flash = 0.4;
+    if (e.type === 'boss') Audio.blip('gameover'); // dramatic stinger
+    game.enemiesDestroyed++;
+    if (Math.random() < (e.type === 'boss' ? 1 : 0.4)) {
+      spawnPowerUp(e.x, e.z);
+      if (e.type === 'boss') {
+        spawnPowerUp(e.x + 3, e.z);
+        spawnPowerUp(e.x - 3, e.z + 3);
+      }
+    }
+    game.enemies.splice(idx, 1);
+  }
+}
+
+function updateEnemyBullets(dt) {
+  const p = game.player;
+  for (let i = game.enemyBullets.length - 1; i >= 0; i--) {
+    const b = game.enemyBullets[i];
+    b.x += b.vx * dt;
+    b.z += b.vz * dt;
+    b.life -= dt;
+    if (b.life <= 0) { game.enemyBullets.splice(i, 1); continue; }
+    if (!p) continue;
+    if (dist2(b.x, b.z, p.x, p.z) < (p.radius + 0.3) ** 2) {
+      if (game.shield > 0) {
+        game.shield = 0;
+        explosionAt(p.x, p.z, [180, 220, 255], 14);
+        Audio.blip('shield');
+      } else {
+        damagePlayer(1, b.x, b.z);
+      }
+      game.enemyBullets.splice(i, 1);
+    }
+  }
+}
+
+function updatePowerUps(dt) {
+  const p = game.player;
+  for (let i = game.powerUps.length - 1; i >= 0; i--) {
+    const pu = game.powerUps[i];
+    pu.ry += pu.rspin * dt;
+    pu.bob += dt;
+    addLight(pu.x, Math.sin(pu.bob) * 0.6, pu.z, [120, 220, 255], 0.7, 5, 0.5);
+    if (!p) continue;
+    if (dist2(p.x, p.z, pu.x, pu.z) < (p.radius + pu.radius) ** 2) {
+      applyPowerUp(pu);
+      game.powerUps.splice(i, 1);
+    } else if (Math.abs(pu.x - game.cameraX) > 38 || Math.abs(pu.z - game.cameraZ) > 38) {
+      // despawn out of range
+      game.powerUps.splice(i, 1);
+    }
+  }
+}
+
+function applyPowerUp(pu) {
+  Audio.blip('powerup');
+  game.flash = 0.2;
+  switch (pu.type) {
+    case 'SHIELD': game.shield = 8; toast('SHIELD ACTIVATED'); break;
+    case 'MULTI':  game.multiShot = 10; toast('MULTI-SHOT'); break;
+    case 'RAPID':  game.rapidFire = 8; toast('RAPID FIRE'); break;
+    case 'BOMB':   triggerBomb(); toast('BOMB!'); break;
+    case 'LIFE':   game.lives = Math.min(9, game.lives + 1); toast('+1 LIFE'); break;
+    case 'SCORE':  game.scoreMult = 12; toast('SCORE × 2'); break;
+  }
+}
+
+function triggerBomb() {
+  Audio.blip('bomb');
+  game.shake = 0.8; game.flash = 0.6;
+  // Destroy all asteroids, enemies, obstacles on screen
+  for (let i = game.asteroids.length - 1; i >= 0; i--) {
+    const a = game.asteroids[i];
+    explosionAt(a.x, a.z, a.color, 20);
+    awardScore(a.score / 2 | 0, a.x, a.z);
+    game.asteroids.splice(i, 1);
+  }
+  for (let i = game.enemies.length - 1; i >= 0; i--) {
+    const e = game.enemies[i];
+    explosionAt(e.x, e.z, e.color, 30);
+    awardScore(e.score / 2 | 0, e.x, e.z);
+    game.enemies.splice(i, 1);
+  }
+  for (let i = game.obstacles.length - 1; i >= 0; i--) {
+    explodeObstacle(i, game.obstacles[i].x, game.obstacles[i].z);
+  }
+}
+
+function updateObstacles(dt) {
+  const p = game.player;
+  for (let i = game.obstacles.length - 1; i >= 0; i--) {
+    const o = game.obstacles[i];
+    o.x += o.vx * dt;
+    o.z += o.vz * dt;
+    o.ry += o.spin * dt;
+    wrapAroundArena(o, 38);
+    if (!p || p.invuln > 0) continue;
+    if (dist2(p.x, p.z, o.x, o.z) < (p.radius + o.radius) ** 2) {
+      if (game.shield > 0) {
+        game.shield = 0;
+        explosionAt(o.x, o.z, [180, 220, 255], 14);
+        explodeObstacle(i, o.x, o.z);
+        Audio.blip('shield');
+      } else {
+        explodeObstacle(i, o.x, o.z);
+        damagePlayer(2, o.x, o.z);
+      }
+    }
+  }
+}
+
+function explodeObstacle(idx, x, z) {
+  const o = game.obstacles[idx];
+  if (!o) return;
+  explosionAt(x, z, [255, 200, 100], 14);
+  Audio.blip('explosion');
+  game.obstacles.splice(idx, 1);
+}
+
+function updateParticles(dt) {
+  for (let i = game.particles.length - 1; i >= 0; i--) {
+    const p = game.particles[i];
+    p.x += p.vx * dt;
+    p.z += p.vz * dt;
+    p.vy -= 12 * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+    p.vx *= 0.96;
+    p.vz *= 0.96;
+    if (p.life <= 0) game.particles.splice(i, 1);
+  }
+}
+
+function wrapAroundArena(e, radius) {
+  const dx = e.x - game.cameraX;
+  const dz = e.z - game.cameraZ;
+  if (dx > radius) e.x -= radius * 2;
+  if (dx < -radius) e.x += radius * 2;
+  if (dz > radius) e.z -= radius * 2;
+  if (dz < -radius) e.z += radius * 2;
+}
+
+function dist2(ax, az, bx, bz) {
+  const dx = ax - bx, dz = az - bz;
+  return dx * dx + dz * dz;
+}
+
+/* -------------------- Particles -------------------- */
+function explosionAt(x, z, color, count) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * TAU;
+    const sp = rand(4, 14);
+    game.particles.push({
+      x, y: rand(-1, 1), z,
+      vx: Math.cos(a) * sp,
+      vy: rand(2, 8),
+      vz: Math.sin(a) * sp,
+      life: rand(0.4, 1.2),
+      color: color,
+      size: rand(1, 3)
+    });
+  }
+  addLight(x, 0, z, color, 1.4, 18, 0.6);
+  game.shake = Math.min(1.2, game.shake + 0.2);
+}
+
+function showFloater(text, x, z, color) {
+  game.particles.push({
+    x, y: 1.5, z,
+    vx: 0, vy: 8, vz: 0,
+    life: 1.2, text, color, size: 14, isText: true
+  });
+}
+
+function toast(msg) {
+  game.toast = msg;
+  game.toastTimer = 2;
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+/* -------------------- Damage / Respawn -------------------- */
+function damagePlayer(amount, atX, atZ) {
+  Audio.blip('hit');
+  game.shake = 0.5; game.flash = 0.3;
+  if (game.shield > 0) {
+    game.shield = 0;
+    explosionAt(game.player.x, game.player.z, [180, 220, 255], 18);
+    return;
+  }
+  game.lives -= 1;
+  explosionAt(game.player.x, game.player.z, [255, 180, 200], 30);
+  if (game.lives <= 0) {
+    triggerGameOver();
+  } else {
+    // Respawn
+    spawnPlayer();
+    game.player.invuln = 2.5;
+  }
+}
+
+/* -------------------- Level / Game flow -------------------- */
+function triggerLevelComplete() {
+  if (game.state !== 'PLAYING') return;
+  game.state = 'LEVEL';
+  Audio.blip('levelup');
+  // Bonus
+  const timeBonus = Math.max(0, Math.floor((MODES[game.mode].timeLimit ? game.timeLeft : 0) * 50));
+  const lifeBonus = game.lives * 500;
+  game.score += timeBonus + lifeBonus;
+  game.pendingLevelChange = { next: game.level + 1 };
+  showLevelScreen(`LEVEL ${game.level + 1}`, `+${lifeBonus} LIFE BONUS  ·  +${timeBonus} TIME BONUS`);
+  setTimeout(() => {
+    if (game.state !== 'LEVEL') return;
+    game.level++;
+    populateLevel();
+    game.state = 'PLAYING';
+  }, 2200);
+}
+
+function triggerGameOver() {
+  game.state = 'OVER';
+  Audio.stopMusic();
+  Audio.blip('gameover');
+  showGameOver();
+}
+
+/* -------------------- Rendering -------------------- */
+function render() {
+  // Clear with subtle motion blur (alpha rect)
+  ctx.fillStyle = 'rgba(2, 3, 10, 0.9)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Background: stars + nebulae + gas clouds (no lighting)
+  drawBackground();
+
+  // Apply camera shake
+  let sx = 0, sy = 0;
+  if (game.shake > 0) {
+    sx = (Math.random() - 0.5) * game.shake * 18;
+    sy = (Math.random() - 0.5) * game.shake * 18;
+  }
+  ctx.save();
+  ctx.translate(W / 2 + sx, H / 2 + sy);
+
+  // Build light list for this frame
+  // (lights are added throughout update; clear stale)
+  // Cull lights that expired
+  for (let i = lights.length - 1; i >= 0; i--) {
+    lights[i].life -= 1 / 60;
+    if (lights[i].life <= 0) lights.splice(i, 1);
+  }
+
+  // Draw world
+  drawPowerUps();
+  drawObstacles();
+  drawAsteroids();
+  drawEnemies();
+  drawBullets();
+  drawEnemyBullets();
+  drawParticles();
+  drawPlayer();
+
+  ctx.restore();
+
+  // Reticle
+  if (game.state === 'PLAYING') drawReticle();
+
+  // Flash overlay
+  if (game.flash > 0) {
+    ctx.fillStyle = `rgba(255, 220, 220, ${game.flash * 0.5})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Vignette
+  const vg = ctx.createRadialGradient(W / 2, H / 2, W * 0.2, W / 2, H / 2, W * 0.7);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+}
+
+/* -------------------- Background -------------------- */
+function drawBackground() {
+  // Gas clouds first (faintest)
+  for (const g of gasClouds) {
+    const sx = g.x - game.cameraX * 0.1;
+    const sz = g.z - game.cameraZ * 0.1;
+    const [px, py] = project(sx, g.y, sz, 0, 0, 0.06);
+    const grad = ctx.createRadialGradient(W/2 + px, H/2 + py, 0, W/2 + px, H/2 + py, g.r * 1.2);
+    grad.addColorStop(0, `rgba(${g.color[0]},${g.color[1]},${g.color[2]},${g.alpha})`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+  // Nebulae
+  for (const n of nebulae) {
+    for (const b of n.blobs) {
+      const wx = n.x + b.ox + Math.cos(n.rot) * 30;
+      const wz = n.z + b.oz + Math.sin(n.rot) * 30;
+      const wy = n.y + b.oy;
+      const [px, py] = project(wx, wy, wz, 0, 0, 0.08);
+      const grad = ctx.createRadialGradient(W/2 + px, H/2 + py, 0, W/2 + px, H/2 + py, b.r);
+      grad.addColorStop(0, `rgba(${n.color[0]},${n.color[1]},${n.color[2]},${n.alpha})`);
+      grad.addColorStop(0.5, `rgba(${n.color[0]},${n.color[1]},${n.color[2]},${n.alpha * 0.4})`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+    n.rot += n.spin * 0.002;
+  }
+  // Stars
+  for (const s of stars) {
+    s.tw += 0.02;
+    const camX = game.cameraX * s.p;
+    const camZ = game.cameraZ * s.p;
+    const [px, py] = project(s.x - camX, s.y, s.z - camZ, 0, 0, 0.18);
+    const a = 0.4 + Math.sin(s.tw) * 0.3;
+    ctx.fillStyle = `rgba(220, 240, 255, ${a})`;
+    ctx.fillRect(W/2 + px, H/2 + py, s.s, s.s);
+  }
+}
+
+/* -------------------- Wireframe draw helpers -------------------- */
+function drawWireframe(mesh, x, y, z, rx, ry, rz, scale, baseColor, lineWidth = 1, glow = false) {
+  // Transform vertices: rotate around Y then X then Z
+  const cosX = Math.cos(rx), sinX = Math.sin(rx);
+  const cosY = Math.cos(ry), sinY = Math.sin(ry);
+  const cosZ = Math.cos(rz), sinZ = Math.sin(rz);
+  const tv = new Array(mesh.verts.length);
+  for (let i = 0; i < mesh.verts.length; i++) {
+    const v = mesh.verts[i];
+    // Y rotation
+    let vx = v.x * cosY - v.z * sinY;
+    let vz = v.x * sinY + v.z * cosY;
+    let vy = v.y;
+    // X rotation
+    let ty = vy * cosX - vz * sinX;
+    let tz = vy * sinX + vz * cosX;
+    vy = ty; vz = tz;
+    // Z rotation
+    let tx = vx * cosZ - vy * sinZ;
+    ty = vx * sinZ + vy * cosZ;
+    vx = tx; vy = ty;
+    const [sx, sy] = project(x + vx * scale, y + vy * scale, z + vz * scale, game.cameraX, game.cameraZ, 1);
+    tv[i] = [W / 2 + sx, H / 2 + sy];
+  }
+  // Compute lighting at object center
+  const [lr, lg, lb] = lighting(x, y, z);
+  const r = Math.min(1, baseColor[0] / 255 * (0.4 + lr * 1.5));
+  const g = Math.min(1, baseColor[1] / 255 * (0.4 + lg * 1.5));
+  const b = Math.min(1, baseColor[2] / 255 * (0.4 + lb * 1.5));
+  ctx.strokeStyle = `rgb(${r * 255 | 0},${g * 255 | 0},${b * 255 | 0})`;
+  ctx.lineWidth = lineWidth;
+  ctx.beginPath();
+  for (const [a, bIdx] of mesh.edges) {
+    const A = tv[a], B = tv[bIdx];
+    ctx.moveTo(A[0], A[1]);
+    ctx.lineTo(B[0], B[1]);
+  }
+  ctx.stroke();
+  if (glow) {
+    ctx.shadowColor = `rgb(${baseColor[0]},${baseColor[1]},${baseColor[2]})`;
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+}
+
+function drawAsteroids() {
+  for (const a of game.asteroids) {
+    drawWireframe(a.mesh, a.x, a.y, a.z, a.rx, a.ry, a.rz, 1, a.color, 1.2);
+  }
+}
+
+function drawEnemies() {
+  for (const e of game.enemies) {
+    drawWireframe(e.mesh, e.x, e.y, e.z, 0, e.ry, e.rz, 1, e.color, 1.4, e.type === 'boss');
+    if (e.type === 'boss') {
+      // HP bar
+      const [sx, sy] = project(e.x, 6, e.z, game.cameraX, game.cameraZ, 1);
+      const cx = W / 2 + sx;
+      const cy = H / 2 + sy;
+      const w = 80, h = 5;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(cx - w/2, cy - 30, w, h);
+      ctx.fillStyle = e.hp / e.maxHp > 0.4 ? '#ffd86b' : '#ff5a8a';
+      ctx.fillRect(cx - w/2, cy - 30, w * (e.hp / e.maxHp), h);
+    }
+  }
+}
+
+function drawBullets() {
+  for (const b of game.bullets) {
+    const [sx, sy] = project(b.x, 0, b.z, game.cameraX, game.cameraZ, 1);
+    const cx = W / 2 + sx, cy = H / 2 + sy;
+    ctx.fillStyle = `rgb(${b.color[0]},${b.color[1]},${b.color[2]})`;
+    ctx.shadowColor = `rgb(${b.color[0]},${b.color[1]},${b.color[2]})`;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, TAU);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+function drawEnemyBullets() {
+  for (const b of game.enemyBullets) {
+    const [sx, sy] = project(b.x, 0, b.z, game.cameraX, game.cameraZ, 1);
+    const cx = W / 2 + sx, cy = H / 2 + sy;
+    ctx.fillStyle = `rgb(${b.color[0]},${b.color[1]},${b.color[2]})`;
+    ctx.shadowColor = `rgb(${b.color[0]},${b.color[1]},${b.color[2]})`;
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, 0, TAU);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+function drawPowerUps() {
+  for (const pu of game.powerUps) {
+    const color = pu.type === 'SHIELD' ? [120, 220, 255]
+                 : pu.type === 'MULTI' ? [255, 200, 80]
+                 : pu.type === 'RAPID' ? [255, 120, 200]
+                 : pu.type === 'BOMB' ? [255, 80, 80]
+                 : pu.type === 'LIFE' ? [120, 255, 160]
+                 : [255, 220, 120];
+    const y = Math.sin(pu.bob) * 0.6;
+    drawWireframe(pu.mesh, pu.x, y, pu.z, pu.bob * 0.7, pu.ry, 0, 1, color, 1.5, true);
+    // Type label (small, world-projected)
+    const [sx, sy] = project(pu.x, 2.2, pu.z, game.cameraX, game.cameraZ, 1);
+    ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+    ctx.font = '10px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(pu.type, W / 2 + sx, H / 2 + sy);
+  }
+}
+
+function drawObstacles() {
+  for (const o of game.obstacles) {
+    drawWireframe(o.mesh, o.x, 0, o.z, 0, o.ry, 0, 1, [255, 180, 100], 1.3);
+    addLight(o.x, 0, o.z, [255, 100, 60], 0.5, 4, 0.5);
+  }
+}
+
+function drawParticles() {
+  for (const p of game.particles) {
+    if (p.isText) {
+      const [sx, sy] = project(p.x, p.y, p.z, game.cameraX, game.cameraZ, 1);
+      ctx.fillStyle = p.color;
+      ctx.font = `bold ${p.size}px Courier New`;
+      ctx.textAlign = 'center';
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 8;
+      ctx.fillText(p.text, W / 2 + sx, H / 2 + sy);
+      ctx.shadowBlur = 0;
+    } else {
+      const [sx, sy] = project(p.x, p.y, p.z, game.cameraX, game.cameraZ, 1);
+      const a = Math.max(0, p.life);
+      ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${a})`;
+      ctx.fillRect(W / 2 + sx - p.size / 2, H / 2 + sy - p.size / 2, p.size, p.size);
+    }
+  }
+}
+
+function drawPlayer() {
+  const p = game.player; if (!p) return;
+  const blink = p.invuln > 0 && Math.floor(p.invuln * 8) % 2 === 0;
+  if (!blink) {
+    drawWireframe(p.mesh, p.x, 0, p.z, 0, p.rot, 0, 1, [120, 220, 255], 1.6, true);
+    // Cockpit glow
+    addLight(p.x, 0.4, p.z, [120, 220, 255], 0.8, 5, 0.5);
+    if (game.shield > 0) {
+      // Shield ring
+      const [sx, sy] = project(p.x, 0, p.z, game.cameraX, game.cameraZ, 1);
+      const cx = W / 2 + sx, cy = H / 2 + sy;
+      ctx.strokeStyle = `rgba(120, 220, 255, ${0.5 + Math.sin(performance.now() * 0.01) * 0.2})`;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#78dcff';
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 24, 14, 0, 0, TAU);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+  }
+}
+
+function drawReticle() {
+  const mx = game.mouseX, my = game.mouseY;
+  ctx.strokeStyle = '#6ff7ff';
+  ctx.lineWidth = 1.2;
+  ctx.shadowColor = '#6ff7ff';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(mx, my, 12, 0, TAU);
+  ctx.moveTo(mx - 18, my); ctx.lineTo(mx - 6, my);
+  ctx.moveTo(mx + 6, my); ctx.lineTo(mx + 18, my);
+  ctx.moveTo(mx, my - 18); ctx.lineTo(mx, my - 6);
+  ctx.moveTo(mx, my + 6); ctx.lineTo(mx, my + 18);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  // Inner dot
+  ctx.fillStyle = '#ff5a8a';
+  ctx.beginPath();
+  ctx.arc(mx, my, 1.5, 0, TAU);
+  ctx.fill();
+}
+
+/* -------------------- HUD update -------------------- */
+function updateHUD() {
+  document.getElementById('hud-score').textContent = game.score.toLocaleString();
+  document.getElementById('hud-level').textContent = game.level;
+  document.getElementById('hud-mode').textContent = MODES[game.mode].name;
+  const lives = game.lives > 0 ? '▲'.repeat(Math.min(9, game.lives)) : '—';
+  const lv = document.getElementById('hud-lives');
+  lv.textContent = lives;
+  lv.classList.toggle('warn', game.lives <= 2);
+  document.getElementById('hud-combo').textContent = 'x' + game.combo;
+  document.getElementById('hud-shield').style.width = (Math.min(1, game.shield / 8) * 100) + '%';
+  document.getElementById('hud-power').style.width = (Math.min(1, Math.max(game.rapidFire, game.multiShot, game.scoreMult) / 10) * 100) + '%';
+}
+
+/* -------------------- Menu navigation -------------------- */
+function showOverlay(id) {
+  ['menu-main','menu-mode','menu-howto','menu-pause','menu-level','menu-over'].forEach(x => {
+    document.getElementById(x).classList.add('hidden');
+  });
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function buildModeList() {
+  const list = document.getElementById('mode-list');
+  list.innerHTML = '';
+  for (const key of Object.keys(MODES)) {
+    const m = MODES[key];
+    const div = document.createElement('div');
+    div.className = 'menu-item' + (key === game.mode ? ' focused' : '');
+    div.dataset.mode = key;
+    div.innerHTML = `<span>${key === game.mode ? '● ' : '○ '}${m.name}</span><span class="desc">${m.desc}</span>`;
+    list.appendChild(div);
+  }
+  // Wire clicks
+  list.querySelectorAll('.menu-item').forEach(el => {
+    el.addEventListener('click', () => {
+      game.mode = el.dataset.mode;
+      buildModeList();
+      Audio.blip('menu');
+    });
+    el.addEventListener('mouseenter', () => {
+      list.querySelectorAll('.menu-item').forEach(x => x.classList.remove('focused'));
+      el.classList.add('focused');
+    });
+  });
+}
+
+function handleMenuAction(act) {
+  Audio.blip('menu');
+  if (act === 'play') {
+    startGame();
+  } else if (act === 'mode') {
+    buildModeList();
+    showOverlay('menu-mode');
+  } else if (act === 'howto') {
+    showOverlay('menu-howto');
+  } else if (act === 'audio') {
+    Audio.setEnabled(!Audio.enabled);
+  } else if (act === 'resume') {
+    resumeGame();
+  } else if (act === 'restart') {
+    hideAllOverlays();
+    resetRunState();
+    game.state = 'PLAYING';
+    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('pause-hint').classList.remove('hidden');
+    Audio.startMusic();
+  } else if (act === 'quit') {
+    Audio.stopMusic();
+    hideAllOverlays();
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('pause-hint').classList.add('hidden');
+    showOverlay('menu-main');
+    game.state = 'MENU';
+  } else if (act === 'retry') {
+    hideAllOverlays();
+    resetRunState();
+    game.state = 'PLAYING';
+    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('pause-hint').classList.remove('hidden');
+    Audio.startMusic();
+  } else if (act === 'menu') {
+    hideAllOverlays();
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('pause-hint').classList.add('hidden');
+    showOverlay('menu-main');
+    game.state = 'MENU';
+  }
+}
+
+function handleEnter() {
+  if (game.state === 'MENU') {
+    const focused = document.querySelector('#menu-main .menu-item.focused');
+    if (focused) handleMenuAction(focused.dataset.action);
+  } else if (game.state === 'OVER') {
+    const focused = document.querySelector('#menu-over .menu-item.focused');
+    if (focused) handleMenuAction(focused.dataset.over);
+  } else if (game.state === 'PAUSED') {
+    const focused = document.querySelector('#menu-pause .menu-item.focused');
+    if (focused) handleMenuAction(focused.dataset.pause);
+  }
+}
+
+function hideAllOverlays() {
+  ['menu-main','menu-mode','menu-howto','menu-pause','menu-level','menu-over'].forEach(x => {
+    document.getElementById(x).classList.add('hidden');
+  });
+}
+
+function showLevelScreen(title, info) {
+  document.getElementById('level-title').textContent = title;
+  document.getElementById('level-info').textContent = info;
+  showOverlay('menu-level');
+}
+
+function showGameOver() {
+  document.getElementById('over-title').textContent = MODES[game.mode].timeLimit ? 'TIME UP' : 'GAME OVER';
+  document.getElementById('over-sub').textContent = '// ' + MODES[game.mode].name + ' //';
+  document.getElementById('over-score').textContent = game.score.toLocaleString();
+  document.getElementById('over-level').textContent = game.level;
+  document.getElementById('over-asteroids').textContent = game.asteroidsDestroyed;
+  document.getElementById('over-enemies').textContent = game.enemiesDestroyed;
+  document.getElementById('over-combo').textContent = 'x' + game.maxCombo;
+  document.getElementById('over-mode').textContent = MODES[game.mode].name;
+  showOverlay('menu-over');
+}
+
+function startGame() {
+  hideAllOverlays();
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('pause-hint').classList.remove('hidden');
+  resetRunState();
+  game.state = 'PLAYING';
+  Audio.startMusic();
+}
+
+function pauseGame() {
+  if (game.state !== 'PLAYING') return;
+  game.state = 'PAUSED';
+  showOverlay('menu-pause');
+}
+
+function resumeGame() {
+  hideAllOverlays();
+  game.state = 'PLAYING';
+}
+
+/* -------------------- Auto fire on click / space -------------------- */
+window.addEventListener('keydown', e => {
+  if ((e.key === ' ' || e.code === 'Space') && game.state === 'PLAYING') {
+    fireBullet();
+  }
+});
+canvas.addEventListener('mousedown', () => {
+  if (game.state === 'PLAYING') fireBullet();
+});
+
+/* -------------------- Main Loop -------------------- */
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  // Always render menu background
+  if (game.state === 'PLAYING' || game.state === 'LEVEL' || game.state === 'PAUSED' || game.state === 'OVER' || game.state === 'MENU') {
+    // Keep stars & nebulae alive for menus (no camera drift — ship stays centered)
+    if (game.state === 'PLAYING') update(dt);
+    render();
+  }
+  if (game.state === 'PLAYING' || game.state === 'PAUSED' || game.state === 'LEVEL') updateHUD();
+  requestAnimationFrame(loop);
+}
+
+/* -------------------- Init -------------------- */
+function init() {
+  Input.init();
+  // Spawn one dummy ship at origin for menu visual
+  spawnPlayer();
+  game.state = 'MENU';
+  // Show main menu
+  showOverlay('menu-main');
+  // Boot
+  requestAnimationFrame(loop);
+}
+
+init();
+</script>
+</body>
+</html>
