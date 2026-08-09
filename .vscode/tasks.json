@@ -1,0 +1,46 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "watch",
+      "problemMatcher": "$esbuild-watch",
+      "isBackground": true,
+      "label": "watch"
+    },
+    {
+      "type": "npm",
+      "script": "compile",
+      "label": "compile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$esbuild",
+        "$tsc"
+      ]
+    },
+    {
+      "type": "npm",
+      "script": "package",
+      "label": "package",
+      "problemMatcher": [
+        "$esbuild"
+      ]
+    },
+    {
+      "label": "tscwatch",
+      "type": "shell",
+      "command": "tsc",
+      "args": [
+        "--noEmit",
+        "-w",
+        "-p",
+        "tsconfig.json"
+      ],
+      "problemMatcher": "$tsc-watch",
+      "isBackground": true
+    }
+  ]
+}
